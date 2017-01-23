@@ -132,5 +132,5 @@ TOP5<-sqldf(QUERY, row.names = TRUE)
 print(TOP5)
 
 
-
+par(mfrow=c(1,1))
 

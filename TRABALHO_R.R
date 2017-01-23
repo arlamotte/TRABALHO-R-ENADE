@@ -1,3 +1,15 @@
+#######################################################
+#### SCRIPT PARA DEFINIR MELHORES FAULDADES DO PAIS ###
+###                                                 ###
+###  ARCHIMEDES LAMOTTE - RM30428                   ###
+###  ALTAIR LARA - RM                               ###
+###  RODRIGO -                                      ###
+###                                                 ###
+#######################################################
+
+
+# INSTALACAO E CARGA DE PACOTES NECESARIOS
+
 install.packages("sqldf", dependencies = TRUE) #Instala o pacote
 install.packages("gdata", dependencies = TRUE) #Instala o pacote
 install.packages("devtools", dependencies = TRUE) #Instala o pacote
@@ -8,8 +20,10 @@ install_github("vqv/ggbiplot")
 require(ggbiplot)
 require(tcltk)
 
+#MOVE PARA DIRETORIODE TRABALHO (mudar comforme nescessário)
 setwd("~/Desktop/MBA/TRABALHO-R-ENADE")
 
+#FUNCAO PARA IMPROMIR CHARTS DO PCA
 pcaCharts <- function(x) {
         x.var <- x$sdev ^ 2
         x.pvar <- x.var/sum(x.var)
@@ -24,13 +38,15 @@ pcaCharts <- function(x) {
         par(mfrow=c(1,1))
 }
 
-# Carrega base de IES
+# CARGA BASES CENSO
+
+# CARGA IES
 IES<-read.csv2("./Bases/CENSO/DM_IES.csv",sep="|")
 
-#Carrega base de Docentes
+#CARGA DOCENTE
 DOCENTE<-read.csv2("./Bases/CENSO/DM_DOCENTE.csv",sep="|")
 
-# CALCUL NUMERO DE DOCENTES POR IES POR ESCOLARIDDE
+# CALCULA NUMERO DE DOCENTES POR IES POR ESCOLARIDDE
 QUERY<-"
 Select 
 CO_IES,
@@ -104,7 +120,7 @@ ESCOLARIDADE_DOCENTE='Sem graduação'
 "
 NUMERO_NAO_GRADUADOS<-sqldf(QUERY,row.names = TRUE)
 
-#JUNTA TABELAS DE GRADUACAO
+#JUNTA TABELAS DE GRADUACAO E PREENCHE NAs
 
 QUERY<-"
 Select 
@@ -138,9 +154,10 @@ LEFT JOIN NUMERO_NAO_GRADUADOS NG on NG.CO_IES = IES.CO_IES
 "
 CLASSIFICACAO_DOCENTES<-sqldf(QUERY,row.names = TRUE)
 
-#CARREGA CONCEITO ENADE
+#CARREGA BASE CONCEITO ENADE
 CONCEITO_ENADE <- read.xls("./Bases/conceito_enade_2014.xlsx", sheet = 1, header = TRUE,fileEncoding="latin1")
 
+#SEPARA CONCEITO ENADE CONTINUO E POR FAIXA
 QUERY<-"
 Select 
 [Cód..IES] as CO_IES,
@@ -151,10 +168,10 @@ GROUP BY [Cód..IES]"
 
 ENADE_NUMBERS<-sqldf(QUERY, row.names = TRUE)
 
-#Carrega Microdados Enade
+#CARREGA MICRODADOS ENADE
 microdados_enade <- read.table("./Bases/microdados_enade_2014.csv",header=T,sep=";")
 
-#Calcula Media e Mediana da Noga Geral por CO_IES 
+#CALCULA MEDIA E MEDIANA DA NOTA GERAL POR IES 
 QUERY <- " 
 Select 
 co_ies as CO_IES,
@@ -165,7 +182,7 @@ GROUP BY co_ies"
 
 ENADE_NOTAS_ALUNOS <- sqldf(QUERY, row.names = TRUE)
 
-#AGRUPA base de UNIVERCIDADES
+#AGRUPA BASE DE UNIVERCIDADES E PREENCHE NAs 
 QUERY <- " 
 Select 
 CD.CO_IES,
@@ -199,18 +216,24 @@ UNIVERSIDADE<-sqldf(QUERY, row.names = TRUE)
 #CALCULA PCA
 
 UNIVERSIDADE.pca <- prcomp(UNIVERSIDADE[,2:7],center = TRUE, scale. = TRUE)
-names(UNIVERSIDADE.pca)
 print(UNIVERSIDADE.pca)
 summary(UNIVERSIDADE.pca)
 pcaCharts(UNIVERSIDADE.pca)
 
-#Valores mais negativos, promovendo rotacnao de eixo
+#VALORES DE PCA MUITO NEGATIVOS, PROMOVENDO ROTACAO DE EIXO PARA MELHOR VISUALIZACAO
 pca.out <- UNIVERSIDADE.pca
 pca.out$rotation <- -pca.out$rotation
 pca.out$x <- -pca.out$x
+
+#PLOTA DISTRIBUICAO
 biplot(pca.out,scale=0, cex=.7)
 pca.out$rotation[,1:2]
 
+#PEGA PROPORCOES
+pca.var <- pca.out$sdev ^ 2
+pca.pvar <- pca.var/sum(pca.var)
+
+#PLOTA DISTRIBUICAO CLASSIFICADA POR FAIXA ENADE
 g <- ggbiplot(pca.out, obs.scale = 0, var.scale = 0, labels=row.names(UNIVERSIDADE$CO_IES),groups = UNIVERSIDADE$C_ENADE_FAIXA,
               ellipse = TRUE, 
               circle = TRUE)
@@ -219,33 +242,12 @@ g <- g + theme(legend.direction = 'horizontal',
                legend.position = 'top')
 print(g)
 
-tmp1 <- pca.out$rotation[,1:2]
-pc <-data.frame(t(tmp1))
+#CALCULA 5 MELHORES FACULDADES UTILIZANDO AS DUAS VARIAVEIS MAIS RELEVANTES (PC1 E PC2)  
 
-#Calcula Melhores 5 UNIVERCIDADES APPROACH 1 -- Acho que não é matematicamente correto 
-
-UNIVERSIDADE$CLASS <- (40.7*(UNIVERSIDADE$NR_DOUTORES*pc[1,]$NR_DOUTORES+UNIVERSIDADE$NR_MESTRES*pc[1,]$NR_MESTRES+UNIVERSIDADE$NR_ESPECIALISTAS*pc[1,]$NR_ESPECIALISTAS+UNIVERSIDADE$NR_GRADUADOS*pc[1,]$NR_GRADUADOS+UNIVERSIDADE$NR_NAO_GRADUADOS*pc[1,]$NR_NAO_GRADUADOS+UNIVERSIDADE$AVG_NOTA_GERAL*pc[1,]$AVG_NOTA_GERAL)/sum(pc[1,])+
-                                                     18.8*(UNIVERSIDADE$NR_DOUTORES*pc[2,]$NR_DOUTORES+UNIVERSIDADE$NR_MESTRES*pc[2,]$NR_MESTRES+UNIVERSIDADE$NR_ESPECIALISTAS*pc[2,]$NR_ESPECIALISTAS+UNIVERSIDADE$NR_GRADUADOS*pc[2,]$NR_GRADUADOS+UNIVERSIDADE$NR_NAO_GRADUADOS*pc[2,]$NR_NAO_GRADUADOS+UNIVERSIDADE$AVG_NOTA_GERAL*pc[2,]$AVG_NOTA_GERAL)/sum(pc[2,]))/(40.7+18.8)
-
-TOP5TMP <- head(arrange(UNIVERSIDADE,desc(UNIVERSIDADE$CLASS)), n = 5)
-
-QUERY <- " 
-Select 
-IE.CO_IES,
-IE.NO_IES,
-U.CLASS
-from IES IE
-inner join TOP5TMP U on IE.CO_IES = U.CO_IES
-ORDER BY U.CLASS desc"
-
-TOP5<-sqldf(QUERY, row.names = TRUE)
-print(TOP5)
-
-#Calcula Melhores 5 UNIVERCIDADES APPROACH 2 -- Usando média das nóvas variaveis
 UNIVERSIDADE$PC1 <- pca.out$x[,1]
 UNIVERSIDADE$PC2 <- pca.out$x[,2]
 
-UNIVERSIDADE$CLASS <- (40.7*(UNIVERSIDADE$PC1)+ 18.8*(UNIVERSIDADE$PC2))/(40.7+18.8)
+UNIVERSIDADE$CLASS <- (pca.pvar[1]*(UNIVERSIDADE$PC1)+pca.pvar[2]*(UNIVERSIDADE$PC2))/(pca.pvar[1]+pca.pvar[2])
 
 TOP5TMP <- head(arrange(UNIVERSIDADE,desc(UNIVERSIDADE$CLASS)), n = 5)
 
@@ -259,6 +261,8 @@ inner join TOP5TMP U on IE.CO_IES = U.CO_IES
 ORDER BY U.CLASS desc"
 
 TOP5<-sqldf(QUERY, row.names = TRUE)
+
+#IMPRIME 5 MELHORS FACULDADES
 print(TOP5)
 
 
