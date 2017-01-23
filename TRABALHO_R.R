@@ -8,7 +8,7 @@ install_github("vqv/ggbiplot")
 require(ggbiplot)
 require(tcltk)
 
-setwd("~/Desktop/MBA/TRABALHO-E-ENADE")
+setwd("~/Desktop/MBA/TRABALHO-R-ENADE")
 
 pcaCharts <- function(x) {
         x.var <- x$sdev ^ 2
