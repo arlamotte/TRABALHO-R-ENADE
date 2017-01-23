@@ -80,3 +80,57 @@ sum(test[1,])
 newdata <- UNIVERSIDADE[order(-UNIVERSIDADE$CALSS),]
 head(arrange(UNIVERSIDADE,desc(UNIVERSIDADE$CALSS)), n = 5)
 test2 <- merge(x = newdata, y = IES, by = "CO_IES", all = TRUE)
+
+summary(pca.out$x)
+head(pca.out$x, 200)
+
+
+#CALCULA PCA
+
+UNIVERSIDADE.pca <- pricomp(UNIVERSIDADE[,2:7],center = TRUE, scale. = TRUE)
+names(UNIVERSIDADE.pca)
+print(UNIVERSIDADE.pca)
+summary(UNIVERSIDADE.pca)
+pcaCharts(UNIVERSIDADE.pca)
+
+#Valores mais negativos, promovendo rotacnao de eixo
+pca.out <- UNIVERSIDADE.pca
+pca.out$rotation <- -pca.out$rotation
+pca.out$x <- -pca.out$x
+biplot(pca.out,scale=0, cex=.7)
+pca.out$rotation[,1:2]
+
+g <- ggbiplot(pca.out, obs.scale = 0, var.scale = 0, labels=row.names(UNIVERSIDADE$CO_IES),groups = UNIVERSIDADE$C_ENADE_FAIXA,
+              ellipse = TRUE, 
+              circle = TRUE)
+g <- g + scale_color_continuous(name = 'ENADE FAIXA')
+g <- g + theme(legend.direction = 'horizontal', 
+               legend.position = 'top')
+print(g)
+
+tmp1 <- pca.out$rotation[,1:2]
+pc <-data.frame(t(tmp1))
+
+#Calcula Melhores 5 UNIVERCIDADES 
+UNIVERSIDADE$CLASS <- pca.out$x[,1]
+UNIVERSIDADE$CLASS2 <- pca.out$x[,2]
+UNIVERSIDADE$CLASSF <- (40.7*(UNIVERSIDADE$CLASS)+
+                               18.8*(UNIVERSIDADE$CLASS2))/(40.7+18.8)
+
+TOP5TMP <- head(arrange(UNIVERSIDADE,desc(UNIVERSIDADE$CLASSF)), n = 5)
+pca.out$x[,1] 
+QUERY <- " 
+Select 
+IE.CO_IES,
+IE.NO_IES,
+U.CLASSF
+from IES IE
+inner join TOP5TMP U on IE.CO_IES = U.CO_IES
+ORDER BY U.CLASSF desc"
+
+TOP5<-sqldf(QUERY, row.names = TRUE)
+print(TOP5)
+
+
+
+
